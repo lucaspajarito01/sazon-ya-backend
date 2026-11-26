@@ -47,7 +47,11 @@ services:
       JWT_EXPIRES_IN_SECONDS: ${JWT_EXPIRES_IN_SECONDS:-7200}
     ports:
       - "${PORT:-3001}:3001"
+    volumes:
+      - sazon_ya_uploads:/app/uploads
 
 volumes:
   sazon_ya_mysql_data:
     name: sazon_ya_mysql_data
+  sazon_ya_uploads:
+    name: sazon_ya_uploads

@@ -8,32 +8,34 @@ import { ROLES } from './entities/UserEntity.js';
 import { openApiSpec } from './docs/openapi.js';
 import { validateRegisterInput, validateLoginInput } from './validators/authValidator.js';
 import {
-  validateProductPayload,
   validateCondimentPayload,
-  validateEventPayload,
-  validateOrderPayload
+  validateOrderPayload,
+  validateContactPayload,
+  validateEventStatusPayload
 } from './validators/domainValidator.js';
+import { extractUploadedMedia, readJsonBody, serveStaticUpload } from './middlewares/uploadMiddleware.js';
+import {
+  persistProductCreate,
+  persistProductUpdate,
+  persistEventCreate,
+  persistEventUpdate
+} from './utils/mediaWorkflow.js';
 
-function readJsonBody(req) {
-  return new Promise((resolve, reject) => {
-    let raw = '';
-    req.on('data', (chunk) => {
-      raw += chunk;
-      if (raw.length > 262144) {
-        reject(new AppError('El cuerpo de la petición excede el límite de 256KB.', 413));
-      }
-    });
-    req.on('end', () => {
-      if (!raw || !raw.trim()) return resolve({});
-      try {
-        resolve(JSON.parse(raw));
-      } catch {
-        reject(new AppError('El cuerpo de la petición contiene JSON malformado.', 400));
-      }
-    });
-    req.on('error', reject);
-  });
-}
+const PRODUCT_UPLOAD_OPTIONS = Object.freeze({
+  fieldNames: ['imagen', 'image'],
+  base64Field: 'imagen_base64',
+  category: 'products',
+  maxTotalBytes: 6 * 1024 * 1024,
+  maxJsonBytes: 8 * 1024 * 1024
+});
+
+const EVENT_UPLOAD_OPTIONS = Object.freeze({
+  fieldNames: ['media_file', 'archivo', 'file'],
+  base64Field: 'media_base64',
+  category: 'events',
+  maxTotalBytes: 16 * 1024 * 1024,
+  maxJsonBytes: 8 * 1024 * 1024
+});
 
 function sendJson(res, statusCode, payload, origin = '*') {
   res.writeHead(statusCode, {
@@ -54,13 +56,18 @@ function getAuthUser(req, required = true) {
     return null;
   }
   const token = authHeader.slice(7).trim();
-  const decoded = verifyJwt(token);
-  return {
-    id: Number(decoded.sub),
-    correo: decoded.correo,
-    rol: decoded.rol,
-    nombre: decoded.nombre
-  };
+  try {
+    const decoded = verifyJwt(token);
+    return {
+      id: Number(decoded.sub),
+      correo: decoded.correo,
+      rol: decoded.rol,
+      nombre: decoded.nombre
+    };
+  } catch (err) {
+    if (required) throw err;
+    return null;
+  }
 }
 
 function assertAdmin(user) {
@@ -76,7 +83,8 @@ export function createNativeHttpServer(customContainer = container) {
     eventService,
     orderService,
     communityService,
-    analyticsService
+    analyticsService,
+    contactService
   } = customContainer.services;
 
   return http.createServer(async (req, res) => {
@@ -127,6 +135,13 @@ export function createNativeHttpServer(customContainer = container) {
         return sendJson(res, 200, openApiSpec, requestOrigin);
       }
 
+      if ((method === 'GET' || method === 'HEAD') && pathname.startsWith('/uploads/')) {
+        await serveStaticUpload(req, res, pathname, requestOrigin, {
+          'X-API-Version': ENV.API_VERSION
+        });
+        return;
+      }
+
       // 1. Auth
       if (method === 'POST' && pathname === '/api/v1/auth/register') {
         const body = await readJsonBody(req);
@@ -171,9 +186,12 @@ export function createNativeHttpServer(customContainer = container) {
       if (method === 'POST' && pathname === '/api/v1/products') {
         const user = getAuthUser(req, true);
         assertAdmin(user);
-        const body = await readJsonBody(req);
-        const clean = validateProductPayload(body, false);
-        const product = await inventoryService.createProduct(clean);
+        await extractUploadedMedia(req, PRODUCT_UPLOAD_OPTIONS);
+        const product = await persistProductCreate({
+          body: req.body,
+          uploadedMedia: req.uploadedMedia || null,
+          inventoryService
+        });
         return sendJson(
           res,
           201,
@@ -188,9 +206,13 @@ export function createNativeHttpServer(customContainer = container) {
         const user = getAuthUser(req, true);
         assertAdmin(user);
         if (method === 'PUT') {
-          const body = await readJsonBody(req);
-          const clean = validateProductPayload(body, true);
-          const product = await inventoryService.updateProduct(prodId, clean);
+          await extractUploadedMedia(req, PRODUCT_UPLOAD_OPTIONS);
+          const product = await persistProductUpdate({
+            id: prodId,
+            body: req.body,
+            uploadedMedia: req.uploadedMedia || null,
+            inventoryService
+          });
           return sendJson(
             res,
             200,
@@ -250,13 +272,51 @@ export function createNativeHttpServer(customContainer = container) {
       if (method === 'POST' && pathname === '/api/v1/events') {
         const user = getAuthUser(req, true);
         assertAdmin(user);
-        const body = await readJsonBody(req);
-        const clean = validateEventPayload(body);
-        const event = await eventService.createEvent(clean, user.id);
+        await extractUploadedMedia(req, EVENT_UPLOAD_OPTIONS);
+        const event = await persistEventCreate({
+          body: req.body,
+          uploadedMedia: req.uploadedMedia || null,
+          adminId: user.id,
+          eventService
+        });
         return sendJson(
           res,
           201,
           { success: true, message: 'Evento / promoción registrado por el administrador.', data: { event } },
+          requestOrigin
+        );
+      }
+
+      const evUpdateMatch = pathname.match(/^\/api\/v1\/events\/(\d+)$/);
+      if (evUpdateMatch && method === 'PUT') {
+        const user = getAuthUser(req, true);
+        assertAdmin(user);
+        await extractUploadedMedia(req, EVENT_UPLOAD_OPTIONS);
+        const event = await persistEventUpdate({
+          id: Number(evUpdateMatch[1]),
+          body: req.body,
+          uploadedMedia: req.uploadedMedia || null,
+          eventService
+        });
+        return sendJson(
+          res,
+          200,
+          { success: true, message: 'Evento / promoción actualizado correctamente.', data: { event } },
+          requestOrigin
+        );
+      }
+
+      const evStatusMatch = pathname.match(/^\/api\/v1\/events\/(\d+)\/status$/);
+      if (evStatusMatch && method === 'PATCH') {
+        const user = getAuthUser(req, true);
+        assertAdmin(user);
+        const body = await readJsonBody(req);
+        const { estado } = validateEventStatusPayload(body);
+        const event = await eventService.updateEventStatus(Number(evStatusMatch[1]), estado);
+        return sendJson(
+          res,
+          200,
+          { success: true, message: 'Estado del evento actualizado.', data: { event } },
           requestOrigin
         );
       }
@@ -398,6 +458,38 @@ export function createNativeHttpServer(customContainer = container) {
         const days = parsedUrl.searchParams.get('days') ? Number(parsedUrl.searchParams.get('days')) : 7;
         const stats = await analyticsService.getWeeklyDashboard({ days });
         return sendJson(res, 200, { success: true, data: stats }, requestOrigin);
+      }
+
+      // 8. Mensajes de Contacto (Público envía / Admin consulta)
+      if (method === 'POST' && pathname === '/api/v1/contacts') {
+        const body = await readJsonBody(req);
+        const clean = validateContactPayload(body);
+        const created = await contactService.submitContact(clean);
+        return sendJson(
+          res,
+          201,
+          {
+            success: true,
+            message: 'Mensaje de contacto enviado correctamente. Pronto nos comunicaremos contigo.',
+            data: {
+              id: created.id,
+              nombre: created.nombre,
+              correo: created.correo,
+              asunto: created.asunto,
+              estado: created.estado,
+              creado_en: created.creado_en,
+              contact: created
+            }
+          },
+          requestOrigin
+        );
+      }
+
+      if (method === 'GET' && pathname === '/api/v1/contacts') {
+        const user = getAuthUser(req, true);
+        assertAdmin(user);
+        const contacts = await contactService.listContacts();
+        return sendJson(res, 200, { success: true, data: { contacts } }, requestOrigin);
       }
 
       return sendJson(

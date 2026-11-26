@@ -2,11 +2,23 @@ import { AppError } from '../utils/AppError.js';
 import { ENV } from '../config/env.js';
 
 export function errorHandler(err, _req, res, _next) {
+  if (res.headersSent) {
+    return _next(err);
+  }
+
   if (err && err.type === 'entity.parse.failed') {
     return res.status(400).json({
       success: false,
       message: 'El cuerpo de la petición contiene JSON malformado.',
       errors: [{ field: 'body', message: 'SyntaxError en JSON' }]
+    });
+  }
+
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({
+      success: false,
+      message: 'El archivo o cuerpo de la petición excede el límite permitido.',
+      errors: []
     });
   }
 

@@ -18,3 +18,4 @@ CREATE INDEX idx_detalle_producto_pedido ON detalle_pedidos (producto_id, pedido
 CREATE INDEX idx_resenas_producto_fecha ON resenas_calificaciones (producto_id, creado_en DESC);
 CREATE INDEX idx_recomendaciones_usuario_estado ON recomendaciones_productos (usuario_id, estado);
 CREATE INDEX idx_eventos_estado_fechas ON eventos_promociones (estado, fecha_inicio, fecha_fin);
+CREATE INDEX idx_contacto_estado_fecha ON mensajes_contacto (estado, creado_en DESC);
