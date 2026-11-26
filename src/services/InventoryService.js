@@ -1,5 +1,6 @@
 import { ProductEntity } from '../entities/ProductEntity.js';
 import { CondimentEntity } from '../entities/CondimentEntity.js';
+import { deleteLocalUpload } from '../utils/imageStorage.js';
 
 export class InventoryService {
   #productRepository;
@@ -28,11 +29,24 @@ export class InventoryService {
   }
 
   async updateProduct(id, payload) {
-    return this.#productRepository.update(id, payload);
+    const existing = await this.#productRepository.findById(id);
+    const updated = await this.#productRepository.update(id, payload);
+    if (
+      existing?.imagen_url &&
+      existing.imagen_url.startsWith('/uploads/products/') &&
+      updated.imagen_url !== existing.imagen_url
+    ) {
+      await deleteLocalUpload(existing.imagen_url);
+    }
+    return updated;
   }
 
   async deleteProduct(id) {
-    return this.#productRepository.deleteOrDeactivate(id);
+    const result = await this.#productRepository.deleteOrDeactivate(id);
+    if (result.action === 'DELETED' && result.product?.imagen_url?.startsWith('/uploads/products/')) {
+      await deleteLocalUpload(result.product.imagen_url);
+    }
+    return result;
   }
 
   async listCondiments() {

@@ -20,11 +20,12 @@ export class CommunityController {
 
   submitReview = async (req, res, next) => {
     try {
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
       const result = await this.#communityService.submitReview({
         usuarioId: req.user.id,
-        productoId: req.body.producto_id,
-        estrellas: req.body.estrellas,
-        comentario: req.body.comentario
+        productoId: body.producto_id,
+        estrellas: body.estrellas,
+        comentario: body.comentario
       });
       res.status(201).json({
         success: true,
@@ -78,10 +79,11 @@ export class CommunityController {
 
   submitRecommendation = async (req, res, next) => {
     try {
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
       const recommendation = await this.#communityService.submitRecommendation({
         usuarioId: req.user.id,
-        nombreSugerido: req.body.nombre_sugerido,
-        descripcionIngredientes: req.body.descripcion_ingredientes
+        nombreSugerido: body.nombre_sugerido,
+        descripcionIngredientes: body.descripcion_ingredientes
       });
       res.status(201).json({
         success: true,
@@ -95,9 +97,10 @@ export class CommunityController {
 
   updateRecommendationStatus = async (req, res, next) => {
     try {
+      const body = req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {};
       const recommendation = await this.#communityService.updateRecommendationStatus(
         req.params.id,
-        req.body.estado
+        body.estado
       );
       res.status(200).json({
         success: true,

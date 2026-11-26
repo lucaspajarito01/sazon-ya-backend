@@ -1,4 +1,5 @@
-import { validateEventPayload } from '../validators/domainValidator.js';
+import { persistEventCreate, persistEventUpdate } from '../utils/mediaWorkflow.js';
+import { validateEventStatusPayload } from '../validators/domainValidator.js';
 
 export class EventController {
   #eventService;
@@ -23,8 +24,12 @@ export class EventController {
 
   createEvent = async (req, res, next) => {
     try {
-      const clean = validateEventPayload(req.body);
-      const created = await this.#eventService.createEvent(clean, req.user.id);
+      const created = await persistEventCreate({
+        body: req.body,
+        uploadedMedia: req.uploadedMedia || null,
+        adminId: req.user.id,
+        eventService: this.#eventService
+      });
       res.status(201).json({
         success: true,
         message: 'Evento / promoción registrado por el administrador.',
@@ -35,9 +40,28 @@ export class EventController {
     }
   };
 
+  updateEvent = async (req, res, next) => {
+    try {
+      const updated = await persistEventUpdate({
+        id: req.params.id,
+        body: req.body,
+        uploadedMedia: req.uploadedMedia || null,
+        eventService: this.#eventService
+      });
+      res.status(200).json({
+        success: true,
+        message: 'Evento / promoción actualizado correctamente.',
+        data: { event: updated }
+      });
+    } catch (err) {
+      next(err);
+    }
+  };
+
   updateStatus = async (req, res, next) => {
     try {
-      const updated = await this.#eventService.updateEventStatus(req.params.id, req.body.estado);
+      const { estado } = validateEventStatusPayload(req.body);
+      const updated = await this.#eventService.updateEventStatus(req.params.id, estado);
       res.status(200).json({
         success: true,
         message: 'Estado del evento actualizado.',

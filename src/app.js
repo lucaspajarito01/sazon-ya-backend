@@ -6,6 +6,8 @@ import { ENV } from './config/env.js';
 import { container } from './container.js';
 import { createApiRouter } from './routes/apiRoutes.js';
 import { errorHandler } from './middlewares/errorHandler.js';
+import { serveStaticUpload } from './middlewares/uploadMiddleware.js';
+import { AppError } from './utils/AppError.js';
 import { openApiSpec } from './docs/openapi.js';
 
 export function createApp(customContainer = container) {
@@ -13,14 +15,20 @@ export function createApp(customContainer = container) {
   app.set('trust proxy', 1);
 
   // Seguridad perimetral
-  app.use(helmet());
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(
     cors({
-      origin: ENV.CORS_ORIGIN === '*' ? true : [ENV.CORS_ORIGIN, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: ENV.CORS_ORIGIN === '*' ? true : [ENV.CORS_ORIGIN, 'http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5500', 'http://127.0.0.1:5500'],
       credentials: true
     })
   );
-  app.use(express.json({ limit: '256kb' }));
+  app.use(express.json({ limit: '8mb' }));
+  app.use((req, _res, next) => {
+    if (req.body !== undefined && (req.body === null || typeof req.body !== 'object' || Array.isArray(req.body))) {
+      return next(new AppError('El cuerpo de la petición debe ser un objeto JSON válido.', 400));
+    }
+    return next();
+  });
 
   // Cabecera SemVer en todas las respuestas
   app.use((req, res, next) => {
@@ -66,6 +74,17 @@ export function createApp(customContainer = container) {
 
   app.get('/api/docs', (_req, res) => {
     res.status(200).json(openApiSpec);
+  });
+
+  // Activos multimedia subidos (imágenes de productos / media de eventos)
+  app.use('/uploads', (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      return next();
+    }
+    const rawPath = (req.originalUrl || `/uploads${req.path}`).split('?')[0];
+    return serveStaticUpload(req, res, rawPath, req.headers.origin || '*', {
+      'X-API-Version': ENV.API_VERSION
+    }).catch(next);
   });
 
   // Rutas de dominio

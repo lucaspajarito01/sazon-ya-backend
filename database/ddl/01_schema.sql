@@ -13,6 +13,7 @@ USE sazon_ya;
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS mensajes_contacto;
 DROP TABLE IF EXISTS participaciones_eventos;
 DROP TABLE IF EXISTS eventos_promociones;
 DROP TABLE IF EXISTS recomendaciones_productos;
@@ -211,6 +212,9 @@ CREATE TABLE IF NOT EXISTS eventos_promociones (
   fecha_inicio DATETIME NOT NULL,
   fecha_fin DATETIME NOT NULL,
   estado ENUM('PROGRAMADO', 'ACTIVO', 'FINALIZADO', 'CANCELADO') NOT NULL DEFAULT 'ACTIVO',
+  media_tipo ENUM('NONE', 'VIDEO', 'POSTING') NOT NULL DEFAULT 'NONE',
+  media_url VARCHAR(500) NULL DEFAULT NULL,
+  posting_contenido TEXT NULL DEFAULT NULL,
   creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT pk_eventos_promociones PRIMARY KEY (id),
   CONSTRAINT fk_eventos_admin FOREIGN KEY (creado_por_admin_id)
@@ -234,4 +238,19 @@ CREATE TABLE IF NOT EXISTS participaciones_eventos (
     REFERENCES eventos_promociones (id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_participacion_usuario FOREIGN KEY (usuario_id)
     REFERENCES usuarios (id) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 14. TABLA: mensajes_contacto
+CREATE TABLE IF NOT EXISTS mensajes_contacto (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  nombre VARCHAR(100) NOT NULL,
+  correo VARCHAR(150) NOT NULL,
+  asunto VARCHAR(150) NOT NULL,
+  mensaje VARCHAR(1000) NOT NULL,
+  estado ENUM('PENDIENTE', 'LEIDO', 'RESPONDIDO') NOT NULL DEFAULT 'PENDIENTE',
+  creado_en DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  CONSTRAINT pk_mensajes_contacto PRIMARY KEY (id),
+  CONSTRAINT chk_contacto_nombre CHECK (CHAR_LENGTH(TRIM(nombre)) >= 2),
+  CONSTRAINT chk_contacto_asunto CHECK (CHAR_LENGTH(TRIM(asunto)) >= 3),
+  CONSTRAINT chk_contacto_mensaje CHECK (CHAR_LENGTH(TRIM(mensaje)) >= 10)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
