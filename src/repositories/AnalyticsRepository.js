@@ -7,12 +7,47 @@ export class AnalyticsRepository extends BaseRepository {
 
   async getWeeklySalesAnalytics({ days = 7 } = {}, conn = null) {
     const state = this.executor(conn).state;
-    const cutoff = Date.now() - Number(days) * 86400000;
+    const parsedDays = Number(days);
+    const truncDays = Number.isFinite(parsedDays) ? Math.trunc(parsedDays) : 0;
+    const windowDays = truncDays >= 1 ? Math.min(truncDays, 90) : 7;
+    const now = new Date();
+    const cutoff = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (windowDays - 1));
 
-    const validOrders = state.pedidos.filter(
-      (p) => p.estado === 'ENTREGADO' && new Date(p.creado_en).getTime() >= cutoff
-    );
+    const validOrders = state.pedidos.filter((p) => {
+      if (p.estado !== 'ENTREGADO') return false;
+      const createdAtMs = new Date(p.creado_en).getTime();
+      return Number.isFinite(createdAtMs) && createdAtMs >= cutoff;
+    });
     const validOrderIds = new Set(validOrders.map((o) => o.id));
+
+    const dailyMap = new Map();
+    for (let i = windowDays - 1; i >= 0; i -= 1) {
+      const bucketMs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i);
+      const fecha = new Date(bucketMs).toISOString().slice(0, 10);
+      dailyMap.set(fecha, {
+        fecha,
+        pedidos: 0,
+        unidades: 0,
+        ingresos: 0,
+        ganancia_neta: 0
+      });
+    }
+
+    const orderDateById = new Map();
+    for (const order of validOrders) {
+      const fecha = new Date(order.creado_en).toISOString().slice(0, 10);
+      orderDateById.set(order.id, fecha);
+      if (!dailyMap.has(fecha)) {
+        dailyMap.set(fecha, {
+          fecha,
+          pedidos: 0,
+          unidades: 0,
+          ingresos: 0,
+          ganancia_neta: 0
+        });
+      }
+      dailyMap.get(fecha).pedidos += 1;
+    }
 
     const productStatsMap = new Map();
 
@@ -41,6 +76,14 @@ export class AnalyticsRepository extends BaseRepository {
       entry.ingresos_totales = Number((entry.ingresos_totales + detail.subtotal_venta).toFixed(2));
       entry.costo_total = Number((entry.costo_total + lineCost).toFixed(2));
       entry.ganancia_neta = Number((entry.ganancia_neta + detail.ganancia_neta_linea).toFixed(2));
+
+      const fecha = orderDateById.get(detail.pedido_id);
+      const dayEntry = dailyMap.get(fecha);
+      if (dayEntry) {
+        dayEntry.unidades += detail.cantidad;
+        dayEntry.ingresos = Number((dayEntry.ingresos + detail.subtotal_venta).toFixed(2));
+        dayEntry.ganancia_neta = Number((dayEntry.ganancia_neta + detail.ganancia_neta_linea).toFixed(2));
+      }
     }
 
     const productosRanking = Array.from(productStatsMap.values())
@@ -101,13 +144,16 @@ export class AnalyticsRepository extends BaseRepository {
         }))
     ];
 
+    const serieDiaria = Array.from(dailyMap.values()).sort((a, b) => a.fecha.localeCompare(b.fecha));
+
     return {
-      periodo_dias: Number(days),
+      periodo_dias: windowDays,
       resumen_global: resumenGlobal,
       producto_mas_vendido: productoMasVendido,
       producto_mayor_ganancia: productoMayorGanancia,
       ganancias_por_producto: productosRanking,
-      alertas_inventario: alertasInventario
+      alertas_inventario: alertasInventario,
+      serie_diaria: serieDiaria
     };
   }
 }

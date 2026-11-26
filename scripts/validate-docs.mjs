@@ -12,9 +12,12 @@ const requiredPaths = [
   '/auth/me',
   '/products',
   '/products/{id}',
+  '/uploads/{folder}/{filename}',
   '/condiments',
   '/condiments/{id}',
   '/events',
+  '/events/{id}',
+  '/events/{id}/status',
   '/events/{id}/participate',
   '/orders',
   '/orders/my',
@@ -22,11 +25,18 @@ const requiredPaths = [
   '/favorites',
   '/favorites/{productoId}/toggle',
   '/recommendations',
-  '/analytics/weekly'
+  '/analytics/weekly',
+  '/contacts'
 ];
 
 for (const pathKey of requiredPaths) {
   assert.ok(openApiSpec.paths[pathKey], `Falta el endpoint obligatorio en OpenAPI: ${pathKey}`);
 }
+
+assert.ok(openApiSpec.paths['/uploads/{folder}/{filename}'].get, 'Falta método GET en /uploads/{folder}/{filename}');
+assert.ok(openApiSpec.paths['/events/{id}'].put, 'Falta método PUT en /events/{id}');
+assert.ok(openApiSpec.paths['/events/{id}/status'].patch, 'Falta método PATCH en /events/{id}/status');
+assert.ok(openApiSpec.paths['/contacts'].post, 'Falta método POST en /contacts');
+assert.ok(openApiSpec.paths['/contacts'].get, 'Falta método GET en /contacts');
 
 console.log(`[DOCS:CHECK] Contrato OpenAPI 3 validado exitosamente (${requiredPaths.length} rutas verificadas).`);

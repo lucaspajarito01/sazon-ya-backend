@@ -1,4 +1,5 @@
-import { validateProductPayload, validateCondimentPayload } from '../validators/domainValidator.js';
+import { validateCondimentPayload } from '../validators/domainValidator.js';
+import { persistProductCreate, persistProductUpdate } from '../utils/mediaWorkflow.js';
 
 export class InventoryController {
   #inventoryService;
@@ -25,8 +26,11 @@ export class InventoryController {
 
   createProduct = async (req, res, next) => {
     try {
-      const clean = validateProductPayload(req.body, false);
-      const created = await this.#inventoryService.createProduct(clean);
+      const created = await persistProductCreate({
+        body: req.body,
+        uploadedMedia: req.uploadedMedia || null,
+        inventoryService: this.#inventoryService
+      });
       res.status(201).json({
         success: true,
         message: 'Producto registrado exitosamente en el inventario.',
@@ -39,8 +43,12 @@ export class InventoryController {
 
   updateProduct = async (req, res, next) => {
     try {
-      const clean = validateProductPayload(req.body, true);
-      const updated = await this.#inventoryService.updateProduct(req.params.id, clean);
+      const updated = await persistProductUpdate({
+        id: req.params.id,
+        body: req.body,
+        uploadedMedia: req.uploadedMedia || null,
+        inventoryService: this.#inventoryService
+      });
       res.status(200).json({
         success: true,
         message: 'Producto actualizado correctamente.',

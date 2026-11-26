@@ -244,6 +244,9 @@ export function createSeedState() {
         fecha_inicio: daysAgo(3),
         fecha_fin: daysAhead(14),
         estado: 'ACTIVO',
+        media_tipo: 'NONE',
+        media_url: null,
+        posting_contenido: null,
         creado_en: daysAgo(4)
       },
       {
@@ -259,6 +262,9 @@ export function createSeedState() {
         fecha_inicio: daysAgo(5),
         fecha_fin: daysAhead(20),
         estado: 'ACTIVO',
+        media_tipo: 'NONE',
+        media_url: null,
+        posting_contenido: null,
         creado_en: daysAgo(5)
       },
       {
@@ -274,6 +280,9 @@ export function createSeedState() {
         fecha_inicio: daysAgo(1),
         fecha_fin: daysAhead(10),
         estado: 'ACTIVO',
+        media_tipo: 'NONE',
+        media_url: null,
+        posting_contenido: null,
         creado_en: daysAgo(2)
       }
     ],
@@ -430,7 +439,8 @@ export function createSeedState() {
         creado_en: daysAgo(1)
       }
     ],
-    auditoria_precios_productos: []
+    auditoria_precios_productos: [],
+    mensajes_contacto: []
   };
 }
 

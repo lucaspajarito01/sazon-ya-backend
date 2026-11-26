@@ -58,11 +58,11 @@ VALUES
 
 -- 6. Eventos, Promociones y Sorteos creados por el Administrador
 INSERT IGNORE INTO eventos_promociones
-  (id, creado_por_admin_id, titulo, descripcion, tipo, porcentaje_descuento, premio_sorteo, cupo_maximo, fecha_inicio, fecha_fin, estado)
+  (id, creado_por_admin_id, titulo, descripcion, tipo, porcentaje_descuento, premio_sorteo, cupo_maximo, fecha_inicio, fecha_fin, estado, media_tipo, media_url, posting_contenido)
 VALUES
-  (1, 1, 'Festival de la Hamburguesa Brasa 2x1', 'Disfruta de nuestras hamburguesas artesanales seleccionadas con 25% de descuento directo durante toda la semana del festival.', 'PROMOCION', 25.00, NULL, NULL, DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_ADD(NOW(), INTERVAL 14 DAY), 'ACTIVO'),
-  (2, 1, 'Gran Sorteo: 1 Mes de Burgers Gratis', 'Participa con tu cuenta activa de SazónYA en el sorteo mensual de 4 Combos Parrillero Imperial totalmente gratis.', 'SORTEO', 0.00, 'Bono de 4 Combos Parrillero Imperial', 100, DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 20 DAY), 'ACTIVO'),
-  (3, 1, 'Noche de Música & Grill en Vivo', 'Evento presencial en nuestra sede principal con degustación de nuevas salsas picantes y DJ invitado.', 'EVENTO', 10.00, 'Pase VIP + Degustación de Salsas', 50, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 10 DAY), 'ACTIVO');
+  (1, 1, 'Festival de la Hamburguesa Brasa 2x1', 'Disfruta de nuestras hamburguesas artesanales seleccionadas con 25% de descuento directo durante toda la semana del festival.', 'PROMOCION', 25.00, NULL, NULL, DATE_SUB(NOW(), INTERVAL 3 DAY), DATE_ADD(NOW(), INTERVAL 14 DAY), 'ACTIVO', 'NONE', NULL, NULL),
+  (2, 1, 'Gran Sorteo: 1 Mes de Burgers Gratis', 'Participa con tu cuenta activa de SazónYA en el sorteo mensual de 4 Combos Parrillero Imperial totalmente gratis.', 'SORTEO', 0.00, 'Bono de 4 Combos Parrillero Imperial', 100, DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 20 DAY), 'ACTIVO', 'NONE', NULL, NULL),
+  (3, 1, 'Noche de Música & Grill en Vivo', 'Evento presencial en nuestra sede principal con degustación de nuevas salsas picantes y DJ invitado.', 'EVENTO', 10.00, 'Pase VIP + Degustación de Salsas', 50, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 10 DAY), 'ACTIVO', 'NONE', NULL, NULL);
 
 -- 7. Pedidos históricos de la semana actual (para Estadísticas Semanales)
 INSERT IGNORE INTO pedidos (id, usuario_id, estado, total_venta, total_costo, notas_entrega, creado_en)

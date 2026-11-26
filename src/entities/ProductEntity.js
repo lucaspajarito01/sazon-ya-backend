@@ -89,6 +89,29 @@ export class ProductEntity extends BaseEntity {
     if (!Object.values(PRODUCT_STATES).includes(d.estado)) {
       errors.push({ field: 'estado', message: 'Estado de inventario de producto inválido.' });
     }
+    if (d.imagen_url !== null) {
+      if (d.imagen_url.length > 500 || !/^(?:[hH][tT][tT][pP][sS]?:\/\/|\/uploads\/)/.test(d.imagen_url)) {
+        errors.push({
+          field: 'imagen_url',
+          message: 'La URL de la imagen debe iniciar con http(s):// o /uploads/ y tener máximo 500 caracteres.'
+        });
+      } else if (d.imagen_url.startsWith('/uploads/')) {
+        if (
+          !/^\/uploads\/products\/[^/?#\\]+$/.test(d.imagen_url) ||
+          d.imagen_url.includes('..') ||
+          d.imagen_url.includes('%2e') ||
+          d.imagen_url.includes('%2E') ||
+          d.imagen_url.slice('/uploads/products/'.length).startsWith('.') ||
+          !/\.(png|jpe?g|webp|gif)$/i.test(d.imagen_url)
+        ) {
+          errors.push({
+            field: 'imagen_url',
+            message:
+              'Las imágenes locales de productos deben ubicarse bajo /uploads/products/ con formato PNG, JPEG, WEBP o GIF.'
+          });
+        }
+      }
+    }
 
     if (errors.length > 0) {
       throw new ValidationError('Error de validación en la entidad Producto (Barrera 2).', errors);

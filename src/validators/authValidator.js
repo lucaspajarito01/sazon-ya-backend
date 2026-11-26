@@ -1,6 +1,9 @@
 import { ValidationError } from '../utils/AppError.js';
 
 export function pickFields(source = {}, allowedFields = []) {
+  if (!source || typeof source !== 'object' || Array.isArray(source)) {
+    return {};
+  }
   const clean = {};
   for (const key of allowedFields) {
     if (Object.prototype.hasOwnProperty.call(source, key)) {

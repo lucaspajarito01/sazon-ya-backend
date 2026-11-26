@@ -1,6 +1,6 @@
 import { BaseRepository } from './BaseRepository.js';
-import { EventEntity } from '../entities/EventEntity.js';
-import { AppError } from '../utils/AppError.js';
+import { EventEntity, EVENT_STATES } from '../entities/EventEntity.js';
+import { AppError, ValidationError } from '../utils/AppError.js';
 
 export class EventRepository extends BaseRepository {
   constructor(db) {
@@ -35,19 +35,65 @@ export class EventRepository extends BaseRepository {
   async create(eventEntity, conn = null) {
     const store = this.executor(conn).state.eventos_promociones;
     const data = eventEntity.getData();
+    if (data.media_tipo === 'NONE') {
+      data.media_url = null;
+      data.posting_contenido = null;
+      eventEntity.setField('media_url', null);
+      eventEntity.setField('posting_contenido', null);
+    }
     const nextId = store.length > 0 ? Math.max(...store.map((e) => e.id)) + 1 : 1;
     const record = { ...data, id: nextId };
     store.push(record);
+    eventEntity.id = nextId;
     return this.findById(nextId, conn);
   }
 
-  async updateStatus(id, estado, conn = null) {
+  async update(id, changes, conn = null) {
     const store = this.executor(conn).state.eventos_promociones;
     const index = store.findIndex((e) => e.id === Number(id));
     if (index === -1) {
       throw new AppError('Evento o promoción no encontrado.', 404);
     }
-    const entity = new EventEntity({ ...store[index], estado });
+
+    const current = store[index];
+    const merged = {
+      ...current,
+      ...changes
+    };
+
+    if (changes.media_tipo && changes.media_tipo !== current.media_tipo && changes.media_url === undefined) {
+      merged.media_url = null;
+    }
+
+    if (changes.media_tipo === 'NONE') {
+      merged.media_url = null;
+      merged.posting_contenido = null;
+    }
+
+    const entity = new EventEntity(merged);
+    store[index] = entity.getData();
+    return this.findById(id, conn);
+  }
+
+  async updateStatus(id, estado, conn = null) {
+    if (typeof estado !== 'string' || estado.trim() === '') {
+      throw new ValidationError('El estado del evento es obligatorio.', [
+        { field: 'estado', message: 'El estado del evento es obligatorio.' }
+      ]);
+    }
+    const normalizedEstado = estado.trim().toUpperCase();
+    if (!Object.values(EVENT_STATES).includes(normalizedEstado)) {
+      throw new ValidationError('El estado del evento es inválido.', [
+        { field: 'estado', message: 'El estado debe ser PROGRAMADO, ACTIVO, FINALIZADO o CANCELADO.' }
+      ]);
+    }
+
+    const store = this.executor(conn).state.eventos_promociones;
+    const index = store.findIndex((e) => e.id === Number(id));
+    if (index === -1) {
+      throw new AppError('Evento o promoción no encontrado.', 404);
+    }
+    const entity = new EventEntity({ ...store[index], estado: normalizedEstado });
     store[index] = entity.getData();
     return this.findById(id, conn);
   }
